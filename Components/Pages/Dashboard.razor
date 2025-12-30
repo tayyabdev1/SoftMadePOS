@@ -1,0 +1,266 @@
+﻿@page "/"
+@using Microsoft.EntityFrameworkCore
+@using Shop.Models
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container-fluid p-4" style="background-color: #f8f9fa; min-height: 100vh;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark m-0">Dashboard</h3>
+            <span class="text-muted small">Overview of your store performance</span>
+        </div>
+        <div class="text-muted small">
+            <i class="bi bi-calendar3 me-1"></i> @DateTime.Now.ToString("dd MMM yyyy")
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 rounded-4 overflow-hidden text-white"
+                 style="background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);">
+                <div class="card-body p-4 position-relative">
+                    <div class="d-flex justify-content-between align-items-start z-1 position-relative">
+                        <div>
+                            <h6 class="text-white-50 text-uppercase small fw-bold letter-spacing-1">Sales (This Month)</h6>
+                            <h2 class="fw-bold mb-1 display-6">Rs. @Stats.ThisMonthSales.ToString("N0")</h2>
+                            <div class="badge bg-white bg-opacity-25 text-white fw-normal mt-2 px-3 py-2 rounded-pill">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>
+                                Last Month: @Stats.LastMonthSales.ToString("N0")
+                            </div>
+                        </div>
+                        <div class="icon-circle bg-white bg-opacity-25 text-white">
+                            <i class="bi bi-currency-dollar fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 rounded-4 border-start border-4 border-primary">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small fw-bold">Total Inventory</h6>
+                            <h2 class="fw-bold text-dark mb-0">@Stats.TotalProducts</h2>
+                            <span class="text-muted small">Active items in stock</span>
+                        </div>
+                        <div class="icon-circle bg-primary bg-opacity-10 text-primary">
+                            <i class="bi bi-box-seam fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 rounded-4 border-start border-4 border-danger">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small fw-bold">Low Stock Alert</h6>
+                            <h2 class="fw-bold text-danger mb-0">@Stats.LowStockCount</h2>
+                            <span class="text-danger small">Items need re-stocking</span>
+                        </div>
+                        <div class="icon-circle bg-danger bg-opacity-10 text-danger">
+                            <i class="bi bi-exclamation-triangle fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100 rounded-4">
+                <div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="m-0 fw-bold text-dark">Sales Trend</h5>
+                    <span class="badge bg-light text-dark border">Last 30 Days</span>
+                </div>
+                <div class="card-body pt-0">
+                    <canvas id="salesChart" style="max-height: 320px; width: 100%;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100 rounded-4">
+                <div class="card-header bg-transparent border-0 py-3">
+                    <h5 class="m-0 fw-bold text-dark">Top Products</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-muted small text-uppercase">
+                                <tr>
+                                    <th class="ps-4 py-3 fw-bold border-0">Item</th>
+                                    <th class="text-end pe-4 py-3 fw-bold border-0">Sold</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Stats.TopProducts)
+                                {
+                                    <tr>
+                                        <td class="ps-4 border-bottom-0">
+                                            <div class="d-flex align-items-center">
+                                                <div class="icon-circle-small bg-success bg-opacity-10 text-success me-3">
+                                                    <i class="bi bi-bag-check"></i>
+                                                </div>
+                                                <span class="fw-semibold text-dark">@item.ProductName</span>
+                                            </div>
+                                        </td>
+                                        <td class="text-end pe-4 border-bottom-0">
+                                            <span class="badge bg-secondary bg-opacity-10 text-dark px-3 py-2 rounded-pill">
+                                                @item.QuantitySold qty
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .icon-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .icon-circle-small {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .letter-spacing-1 {
+        letter-spacing: 0.5px;
+    }
+    .card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+</style>
+
+@code {
+    private DashboardStats Stats = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadStats();
+            // Prepare Data for Chart
+            var labels = Stats.DailySales.Select(x => x.Date.ToString("dd MMM")).ToArray();
+            var data = Stats.DailySales.Select(x => x.Total).ToArray();
+
+            // Render Chart via JS
+            await JSRuntime.InvokeVoidAsync("renderSalesChart", "salesChart", labels, data);
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadStats()
+    {
+        using var context = DbFactory.CreateDbContext();
+        var now = DateTime.Now;
+        var startOfMonth = new DateTime(now.Year, now.Month, 1);
+        var startOfLastMonth = startOfMonth.AddMonths(-1);
+        var endOfLastMonth = startOfMonth.AddDays(-1);
+
+        // 1. Basic Counts
+        Stats.TotalProducts = await context.Products.CountAsync();
+        Stats.LowStockCount = await context.Products.CountAsync(p => p.StockQuantity <= p.MinStockAlert);
+
+        // 2. Sales Totals
+        var thisMonthValues = await context.Sales
+            .Where(s => s.Date >= startOfMonth)
+            .Select(s => s.NetTotal)
+            .ToListAsync();
+        Stats.ThisMonthSales = thisMonthValues.Sum();
+
+        var lastMonthValues = await context.Sales
+            .Where(s => s.Date >= startOfLastMonth && s.Date <= endOfLastMonth)
+            .Select(s => s.NetTotal)
+            .ToListAsync();
+        Stats.LastMonthSales = lastMonthValues.Sum();
+
+        // 3. Daily Sales for Graph
+        var last30Days = now.AddDays(-30);
+        var rawSales = await context.Sales
+            .Where(s => s.Date >= last30Days)
+            .Select(s => new { s.Date, s.NetTotal })
+            .ToListAsync();
+
+        Stats.DailySales = rawSales
+            .GroupBy(s => s.Date.Date)
+            .Select(g => new DailySaleData { Date = g.Key, Total = g.Sum(x => x.NetTotal) })
+            .OrderBy(x => x.Date)
+            .ToList();
+
+        // 4. Top Selling Items
+        var rawDetails = await context.SaleDetails
+            .Select(sd => new { sd.ProductId, sd.Quantity })
+            .ToListAsync();
+
+        var topIds = rawDetails
+            .GroupBy(sd => sd.ProductId)
+            .Select(g => new { ProductId = g.Key, Qty = g.Sum(x => x.Quantity) })
+            .OrderByDescending(x => x.Qty)
+            .Take(5)
+            .ToList();
+
+        // Fetch Product Names for the IDs we found
+        var productIds = topIds.Select(x => x.ProductId).ToList();
+        var productNames = await context.Products
+            .Where(p => productIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name);
+
+        Stats.TopProducts = topIds.Select(x => new TopProduct
+            {
+                ProductName = productNames.ContainsKey(x.ProductId) ? productNames[x.ProductId] : "Unknown",
+                QuantitySold = x.Qty
+            }).ToList();
+    }
+
+    // View Models
+    public class DashboardStats
+    {
+        public decimal ThisMonthSales { get; set; }
+        public decimal LastMonthSales { get; set; }
+        public int TotalProducts { get; set; }
+        public int LowStockCount { get; set; }
+        public List<DailySaleData> DailySales { get; set; } = new();
+        public List<TopProduct> TopProducts { get; set; } = new();
+    }
+
+    public class DailySaleData
+    {
+        public DateTime Date { get; set; }
+        public decimal Total { get; set; }
+    }
+
+    public class TopProduct
+    {
+        public string ProductName { get; set; } = "";
+        public decimal QuantitySold { get; set; }
+    }
+}

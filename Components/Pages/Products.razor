@@ -1,0 +1,258 @@
+﻿@page "/products"
+@using Microsoft.EntityFrameworkCore
+@using Shop.Models
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Product Inventory</h3>
+        <button class="btn btn-primary" @onclick="OpenAddModal">
+            <i class="bi bi-plus-lg me-2"></i>Add Product
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white p-3">
+            <input type="text" class="form-control w-50" placeholder="Search by name or barcode..."
+            @bind="SearchTerm" @bind:event="oninput" />
+        </div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th>Barcode</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Cost</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in FilteredProducts)
+                    {
+                        <tr>
+                            <td><span class="badge bg-secondary">@p.Barcode</span></td>
+                            <td class="fw-bold">@p.Name</td>
+                            <td>@p.Category</td>
+                            <td>@p.CostPrice.ToString("N0")</td>
+                            <td class="text-success fw-bold">@p.SalePrice.ToString("N0")</td>
+                            <td>
+                                <span class="badge @(p.StockQuantity < 10 ? "bg-danger" : "bg-success")">
+                                    @p.StockQuantity
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditProduct(p)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteProduct(p)">Del</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(IsRestockMode ? "Restock Product" : (CurrentProduct.Id == 0 ? "Add Product" : "Edit Product"))</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="CurrentProduct" OnValidSubmit="SaveProduct">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label>Barcode (Scan Here)</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                <input type="text"
+                                @bind="CurrentProduct.Barcode"
+                                @oninput="CheckBarcodeForDuplicate"
+                                class="form-control"
+                                id="barcodeInput"
+                                placeholder="Scan to add or restock..."
+                                autocomplete="off" />
+                            </div>
+                        </div>
+
+                        @if (IsRestockMode)
+                        {
+                            <div class="alert alert-info">
+                                <strong>Product Found:</strong> @CurrentProduct.Name <br />
+                                Current Stock: <strong>@CurrentProduct.StockQuantity</strong>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold text-success">Quantity To Add (+)</label>
+                                <input type="number" class="form-control border-success"
+                                @bind="StockToAdd" autofocus />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label>Product Name</label>
+                                <InputText @bind-Value="CurrentProduct.Name" class="form-control" />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label>Category</label>
+                                    <InputText @bind-Value="CurrentProduct.Category" class="form-control" />
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label>Initial Stock</label>
+                                    <InputNumber @bind-Value="StockToAdd" class="form-control" />
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label>Cost Price</label>
+                                    <InputNumber @bind-Value="CurrentProduct.CostPrice" class="form-control" />
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label>Sale Price</label>
+                                    <InputNumber @bind-Value="CurrentProduct.SalePrice" class="form-control" />
+                                </div>
+                            </div>
+                        }
+
+                        <button type="submit" class="btn btn-success w-100 py-2">
+                            @(IsRestockMode ? "Update Stock" : "Save Product")
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Product> Product = new();
+    private Product CurrentProduct = new();
+    private string SearchTerm = "";
+    private bool ShowModal = false;
+    private int StockToAdd = 0;
+    private bool IsRestockMode = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        using var context = DbFactory.CreateDbContext();
+        Product = await context.Products.OrderByDescending(p => p.Id).ToListAsync();
+    }
+
+    private List<Product> FilteredProducts => Product
+        .Where(p => string.IsNullOrEmpty(SearchTerm) ||
+               p.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+               p.Barcode.Contains(SearchTerm))
+        .ToList();
+
+    private async Task OpenAddModal()
+    {
+        CurrentProduct = new Product();
+
+        StockToAdd = 0;
+        IsRestockMode = false;
+        ShowModal = true;
+
+        // Wait for Modal to render, then Focus the Barcode Box
+        await Task.Delay(100);
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('barcodeInput').focus()");
+    }
+
+    private void EditProduct(Product p)
+    {
+        IsRestockMode = false;
+        StockToAdd = 0;
+
+        CurrentProduct = new Product
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Barcode = p.Barcode,
+            Category = p.Category,
+            CostPrice = p.CostPrice,
+            SalePrice = p.SalePrice,
+            StockQuantity = p.StockQuantity
+        };
+        ShowModal = true;
+    }
+
+    private async Task CheckBarcodeForDuplicate(ChangeEventArgs e){
+        string scannedCode = e.Value.ToString();
+        if (string.IsNullOrEmpty(scannedCode)) return;
+
+        using var context = DbFactory.CreateDbContext();
+
+        var exisitingProduct = await context.Products.FirstOrDefaultAsync(p => p.Barcode == scannedCode);
+
+        if(exisitingProduct != null){
+            CurrentProduct = exisitingProduct;
+            IsRestockMode = true;
+            StockToAdd = 0;
+        }
+        else{
+            IsRestockMode = false;
+        }
+    }
+
+    private async Task SaveProduct()
+    {
+        using var context = DbFactory.CreateDbContext();
+        if (IsRestockMode)
+        {
+            context.Products.Attach(CurrentProduct);
+            CurrentProduct.StockQuantity += StockToAdd;
+            context.Entry(CurrentProduct).State = EntityState.Modified;
+        }
+        else
+        {
+            if (CurrentProduct.Id == 0)
+            {
+                // Check Duplicate Barcode
+                if (await context.Products.AnyAsync(p => p.Barcode == CurrentProduct.Barcode))
+                {
+                    return; //Barcode exists
+                }
+
+                CurrentProduct.StockQuantity = StockToAdd;
+                context.Products.Add(CurrentProduct);
+            }
+            else // Update
+            {
+                context.Products.Update(CurrentProduct);
+            }
+        }
+        await context.SaveChangesAsync();
+        ShowModal = false;
+        IsRestockMode = false;
+        StockToAdd = 0;
+
+        await LoadProducts();
+    }
+
+    private async Task DeleteProduct(Product p)
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Products.Remove(p);
+        await context.SaveChangesAsync();
+        await LoadProducts();
+    }
+
+    private void CloseModal() => ShowModal = false;
+}

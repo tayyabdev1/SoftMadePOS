@@ -1,0 +1,54 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Shop</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center gap-3" href="" Match="NavLinkMatch.All">
+                <span class="bi-house-door-fill fs-4" aria-hidden="true"></span>
+                <span class="fs-6">Home</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center gap-3" href="pos">
+                <span class="bi-pc-display-horizontal fs-4" aria-hidden="true"></span>
+                <span class="fs-6">POS</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center gap-3" href="products">
+                <span class="bi-box-seam-fill fs-4" aria-hidden="true"></span>
+                <span class="fs-6">Products</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center gap-3" href="customers">
+                <span class="bi-people-fill fs-4" aria-hidden="true"></span>
+                <span class="fs-6">Customers</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center gap-3" href="suppliers">
+                <span class="bi-truck-front-fill fs-4" aria-hidden="true"></span>
+                <span class="fs-6">Suppliers</span>
+            </NavLink>
+        </div>
+        
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center gap-3" href="sales">
+                <span class="bi-currency-dollar fs-4" aria-hidden="true"></span>
+                <span class="fs-6">Sales</span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+

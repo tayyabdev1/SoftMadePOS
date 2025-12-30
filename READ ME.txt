@@ -1,0 +1,22 @@
+# SoftMade POS - Blazor Server Point of Sale
+
+A lightweight, keyboard-first POS system designed for local retail shops in Pakistan. Built with .NET 8, Blazor Server, and SQLite.
+
+## Features
+* **High-Speed POS:** Keyboard shortcuts (F8 Pay, F9 Print, F10 Khata).
+* **Ledger (Khata) System:** Full debit/credit management for local customers.
+* **Thermal Printing:** Raw ESC/POS printing sent directly to local printers.
+* **Loose Item Support:** Supports decimal quantities (e.g., 0.25kg Sugar).
+* **Dashboard:** Real-time sales analytics and low stock alerts.
+
+## Tech Stack
+* **Framework:** ASP.NET Core Blazor Server (.NET 8)
+* **Database:** SQLite with Entity Framework Core
+* **Printing:** Raw network/USB printing integration
+
+## Key Implementation Details
+I am looking for feedback specifically on:
+1. **Concurrency:** How `ProcessSale` handles database locking with SQLite.
+2. **State Management:** My approach to the "Khata" modal logic in `Customers.razor`.
+3. **Performance:** The progressive loading strategy in the `Sales` history page.
+4. **Hardware Integration:** The logic in POS.razor for handling Barcode Scanning and raw ESC/POS Printing.

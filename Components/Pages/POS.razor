@@ -1,0 +1,631 @@
+﻿@page "/pos"
+@using Microsoft.EntityFrameworkCore
+@using Shop.Models
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Config
+@rendermode InteractiveServer
+
+<div class="pos-container" @onkeydown="HandleGlobalKeys" tabindex="0">
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger d-flex align-items-center p-2 shadow" style="position:absolute; top:20px; left:50%; transform:translateX(-50%); z-index:2000; min-width:350px; border-radius: 50px;">
+            <i class="bi bi-exclamation-circle-fill me-2 fs-5"></i>
+            <strong>@ErrorMessage</strong>
+            <button type="button" class="btn-close ms-auto" @onclick="() => ErrorMessage = string.Empty"></button>
+        </div>
+    }
+
+    <div class="pos-content">
+        <div class="search-bar-container shadow-sm">
+            <input type="text" id="barcodeInput"
+                   @bind="SearchTerm"
+                   @bind:event="oninput"
+                   @onkeyup="HandleBarcodeEnter"
+                   placeholder="Scan Item OR Type 'Qty*Code' (e.g. 0.5*101)..."
+                   autocomplete="off" />
+            <i class="bi bi-search text-muted small"></i>
+        </div>
+
+        <div class="cart-card shadow-sm">
+            <div class="cart-header-row">
+                <div class="col-item">Item</div>
+                <div class="col-qty text-center">Weight/Qty</div>
+                <div class="col-price text-center">Rate</div>
+                <div class="col-total text-end">Total</div>
+                <div class="col-action"></div>
+            </div>
+
+            <div class="cart-list">
+                @if (Cart.Count == 0)
+                {
+                    <div class="empty-cart-message">
+                        <i class="bi bi-basket2 mb-2 fs-1 text-black-50"></i>
+                        <p class="text-muted small">Ready to scan...</p>
+                        <small class="text-muted" style="font-size:0.7rem">Tip: For 250g Sugar (Code 101), type <strong>0.25*101</strong></small>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var item in Cart)
+                    {
+                        <div class="cart-row">
+                            <div class="col-item fw-bold text-dark text-truncate">@item.ProductName</div>
+
+                            <div class="col-qty d-flex justify-content-center">
+                                <div class="qty-group">
+                                    <button @onclick="() => ChangeQty(item, -1)">−</button>
+
+                                    <input type="number" step="0.01" class="qty-input"
+                                           value="@item.Quantity"
+                                           @onchange="@(e => UpdateItemQty(item, e.Value))" />
+
+                                    <button @onclick="() => ChangeQty(item, 1)">+</button>
+                                </div>
+                            </div>
+
+                            <div class="col-price text-center">@item.UnitPoolPrice.ToString("N0")</div>
+                            <div class="col-total text-end fw-bold">@item.Total.ToString("N0")</div>
+
+                            <div class="col-action text-end">
+                                <button class="btn-remove" @onclick="() => RemoveItem(item)">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="footer-section">
+            <div class="totals-area">
+                <div class="mb-2">
+                    <select class="form-select form-select-sm border-secondary fw-bold" @bind="SelectedCustomerId" style="font-size: 0.85rem;">
+                        <option value="0">-- Walk-in Customer --</option>
+                        @foreach (var c in Customers)
+                        {
+                            <option value="@c.Id">@c.Name (@c.Phone)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="total-line small-text">
+                    <span class="label text-muted">Subtotal</span>
+                    <span class="value">@Cart.Sum(x => x.Total).ToString("N0")</span>
+                </div>
+                <div class="total-line small-text">
+                    <span class="label text-muted">Discount</span>
+                    <div class="discount-wrapper">
+                        <input type="number" @bind="DiscountAmount" placeholder="0" />
+                    </div>
+                </div>
+                <div class="net-total-line mt-1">
+                    <span class="label small text-uppercase text-muted">Net Total</span>
+                    <span class="value">Rs. @(Math.Max(0, Cart.Sum(x => x.Total) - Math.Abs(DiscountAmount)).ToString("N0"))</span>
+                </div>
+            </div>
+
+            <div class="buttons-area">
+                <button class="btn-pay-only shadow-sm" @onclick="() => ProcessSale(false, false)">
+                    PAY ONLY (F8)
+                </button>
+
+                <div class="d-flex gap-2 mt-2 w-100">
+                    <button class="btn-cancel shadow-sm" @onclick="ClearCart">ESC</button>
+                    <button class="btn-pay-print shadow-sm flex-grow-1" @onclick="() => ProcessSale(true, false)">
+                        PAY & PRINT (F9)
+                    </button>
+                </div>
+
+                <button class="btn btn-warning mt-2 py-2 fw-bold shadow-sm w-100 small-btn" @onclick="() => ProcessSale(true, true)">
+                    <i class="bi bi-journal-arrow-up me-2"></i> KHATA (F10)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Same Styles as before, plus: */
+    .pos-container {
+        height: calc(100vh - 60px);
+        background-color: #f8f9fa;
+        display: flex;
+        justify-content: center;
+        padding: 15px;
+        font-family: 'Segoe UI', sans-serif;
+        outline: none;
+    }
+
+    .pos-content {
+        width: 100%;
+        max-width: 950px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .search-bar-container {
+        background: white;
+        border-radius: 8px;
+        padding: 0 15px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        border: 2px solid #333;
+    }
+
+        .search-bar-container input {
+            border: none;
+            outline: none;
+            width: 100%;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+    .cart-card {
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 0 15px;
+        min-height: 0;
+    }
+
+    .cart-header-row {
+        display: flex;
+        align-items: center;
+        padding: 10px 5px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #eee;
+        text-transform: uppercase;
+        color: #555;
+    }
+
+    .cart-list {
+        flex: 1;
+        overflow-y: auto;
+        padding-top: 5px;
+    }
+
+    .cart-row {
+        display: flex;
+        align-items: center;
+        padding: 8px 5px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.95rem;
+    }
+
+    .col-item {
+        flex: 2;
+        overflow: hidden;
+    }
+
+    .col-qty {
+        flex: 1;
+    }
+
+    .col-price {
+        flex: 1;
+    }
+
+    .col-total {
+        flex: 1;
+    }
+
+    .col-action {
+        width: 30px;
+    }
+
+    .qty-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: #f1f3f5;
+        border-radius: 4px;
+        padding: 2px 5px;
+    }
+
+        .qty-group button {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            color: #333;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+        }
+
+    .qty-input {
+        width: 50px;
+        text-align: center;
+        border: none;
+        background: transparent;
+        font-weight: 600;
+        font-size: 0.9rem;
+        outline: none;
+    }
+        .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+    .btn-remove {
+        background: none;
+        border: none;
+        color: #ff6b6b;
+        font-size: 1.1rem;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .empty-cart-message {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.5;
+    }
+
+    .footer-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-top: 5px;
+    }
+
+    .totals-area {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 260px;
+    }
+
+    .small-text {
+        font-size: 0.9rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .discount-wrapper input {
+        width: 70px;
+        border: none;
+        border-bottom: 1px solid #ccc;
+        background: transparent;
+        font-weight: bold;
+        text-align: right;
+        outline: none;
+        font-size: 0.9rem;
+    }
+
+    .net-total-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #e6fcf5;
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: 1px solid #00b894;
+    }
+
+        .net-total-line .value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #008c70;
+            line-height: 1;
+        }
+
+    .buttons-area {
+        width: 320px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .btn-pay-only {
+        width: 100%;
+        background-color: #38b6ff;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-pay-print {
+        background-color: #00b894;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-cancel {
+        background-color: #ff4757;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        width: 60px;
+        font-size: 0.9rem;
+    }
+
+    .small-btn {
+        font-size: 0.9rem;
+        padding: 8px;
+    }
+</style>
+
+@code {
+    public class CartItem
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = "";
+        public decimal UnitPoolPrice { get; set; }
+        public decimal Quantity { get; set; }
+        public decimal Total => UnitPoolPrice * Quantity;
+    }
+
+    private List<Product> Products = new();
+    private List<Customer> Customers = new();
+    private List<CartItem> Cart = new();
+    private string SearchTerm = "";
+    private decimal DiscountAmount = 0;
+    private string ErrorMessage = "";
+    private int SelectedCustomerId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await FocusSearch();
+    }
+
+    private async Task LoadData()
+    {
+        using var context = DbFactory.CreateDbContext();
+        Products = await context.Products.AsNoTracking().Where(p => p.IsActive).ToListAsync();
+        Customers = await context.Customers.AsNoTracking().OrderBy(c => c.Name).ToListAsync();
+    }
+
+    private List<Product> FilteredProducts => Products
+        .Where(p => string.IsNullOrEmpty(SearchTerm) ||
+               p.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+               p.Barcode.Contains(SearchTerm))
+        .Take(50)
+        .ToList();
+
+    // SMART BARCODE HANDLER
+    private async Task HandleBarcodeEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(SearchTerm))
+        {
+            ErrorMessage = "";
+            string input = SearchTerm.Trim();
+            decimal overrideQty = 1;
+            string codeToSearch = input;
+
+            // 1. Check for "Qty*Code" Format (e.g. 0.5*101)
+            if (input.Contains("*"))
+            {
+                var parts = input.Split('*');
+                if (parts.Length == 2 && decimal.TryParse(parts[0], out decimal q))
+                {
+                    overrideQty = q;
+                    codeToSearch = parts[1];
+                }
+            }
+
+            // 2. Find Product
+            var exactMatch = Products.FirstOrDefault(p => p.Barcode == codeToSearch);
+
+            if (exactMatch != null)
+            {
+                AddToCart(exactMatch, overrideQty);
+            }
+            else
+            {
+                // Fallback (Text Search) - Only if NO multiplier was used
+                if (overrideQty == 1)
+                {
+                    var searchResults = FilteredProducts;
+                    if (searchResults.Count == 1) AddToCart(searchResults.First(), 1);
+                    else ErrorMessage = $"Product not found: {codeToSearch}";
+                }
+                else
+                {
+                    ErrorMessage = $"Product code '{codeToSearch}' not found.";
+                }
+            }
+        }
+    }
+
+    private void AddToCart(Product p, decimal qty)
+    {
+        var existing = Cart.FirstOrDefault(c => c.ProductId == p.Id);
+        if (existing != null)
+        {
+            existing.Quantity += qty;
+        }
+        else
+        {
+            Cart.Add(new CartItem { ProductId = p.Id, ProductName = p.Name, UnitPoolPrice = p.SalePrice, Quantity = qty });
+        }
+        SearchTerm = "";
+        ErrorMessage = "";
+    }
+
+    // Manual Edit from UI
+    private void UpdateItemQty(CartItem item, object? value)
+    {
+        if (value is string s && decimal.TryParse(s, out decimal val))
+        {
+            if (val <= 0) RemoveItem(item);
+            else item.Quantity = val;
+        }
+    }
+
+    private void ChangeQty(CartItem item, int delta)
+    {
+        item.Quantity += delta;
+        if (item.Quantity <= 0) Cart.Remove(item);
+    }
+
+    private void RemoveItem(CartItem item) => Cart.Remove(item);
+
+    private void ClearCart()
+    {
+        Cart.Clear();
+        DiscountAmount = 0;
+        ErrorMessage = "";
+        SelectedCustomerId = 0;
+    }
+
+    // PROCESS SALE
+    private async Task ProcessSale(bool PrintReceipt, bool IsCredit = false)
+    {
+        if (Cart.Count == 0) return;
+
+        if (IsCredit && SelectedCustomerId == 0)
+        {
+            ErrorMessage = "⚠️ Select a Customer for Udhaar/Khata!";
+            return;
+        }
+
+        decimal subTotal = Cart.Sum(x => x.Total);
+        decimal safeDiscount = Math.Abs(DiscountAmount);
+        if (safeDiscount > subTotal) safeDiscount = subTotal;
+        DiscountAmount = safeDiscount;
+        decimal netTotal = subTotal - safeDiscount;
+
+        using var context = DbFactory.CreateDbContext();
+
+        decimal oldBalance = 0;
+        decimal newBalance = 0;
+        if (SelectedCustomerId > 0)
+        {
+            var customer = await context.Customers.FindAsync(SelectedCustomerId);
+            if (customer != null)
+            {
+                oldBalance = customer.Balance;
+                if (IsCredit) { customer.Balance += netTotal; newBalance = customer.Balance; }
+                else { newBalance = oldBalance; }
+            }
+        }
+
+        var sale = new Sale
+            {
+                Date = DateTime.Now,
+                TotalAmount = subTotal,
+                Discount = safeDiscount,
+                NetTotal = netTotal,
+                PaymentMethod = IsCredit ? "Credit" : "Cash",
+                CustomerId = SelectedCustomerId == 0 ? null : SelectedCustomerId
+            };
+
+        context.Sales.Add(sale);
+        await context.SaveChangesAsync();
+
+        var productIds = Cart.Select(c => c.ProductId).ToList();
+        var productsToUpdate = await context.Products.Where(p => productIds.Contains(p.Id)).ToListAsync();
+
+        foreach (var item in Cart)
+        {
+            context.SaleDetails.Add(new SaleDetails
+                {
+                    SaleId = sale.Id,
+                    ProductId = item.ProductId,
+                    Quantity = (int)item.Quantity, // Temporarily casting to int to prevent crash if DB is not updated
+                    SalePrice = item.UnitPoolPrice
+                });
+
+            var dbProduct = productsToUpdate.FirstOrDefault(p => p.Id == item.ProductId);
+            if (dbProduct != null)
+            {
+                // dbProduct.StockQuantity is likely still Int in your DB
+                dbProduct.StockQuantity -= (int)item.Quantity;
+            }
+        }
+
+        await context.SaveChangesAsync();
+
+        if (PrintReceipt)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append("\x1B\x40\x1B\x61\x01\x1B\x45\x01KASHI STORE\n\x1B\x45\x00");
+            sb.Append("Main Bazar Barkat Pura #2 FSD\nTel: 0300-1234567\n--------------------------------\n");
+            sb.Append($"\x1B\x61\x00Inv: {sale.Id}   {DateTime.Now:dd/MM/yy hh:mm tt}\n");
+
+            if (SelectedCustomerId > 0)
+            {
+                var cName = Customers.FirstOrDefault(c => c.Id == SelectedCustomerId)?.Name ?? "Customer";
+                sb.Append($"Customer: {cName}\n");
+            }
+            sb.Append("--------------------------------\n");
+
+            string colFmt = "{0,-16} {1,5} {2,9}\n";
+            sb.Append("\x1B\x45\x01" + string.Format(colFmt, "Item", "Qty", "Price") + "\x1B\x45\x00--------------------------------\n");
+
+            foreach (var item in Cart)
+            {
+                string name = item.ProductName.Length > 16 ? item.ProductName.Substring(0, 16) : item.ProductName;
+                sb.Append(string.Format(colFmt, name, item.Quantity.ToString("0.##"), (item.UnitPoolPrice * item.Quantity).ToString("N0")));
+            }
+
+            sb.Append("--------------------------------\n");
+            string totalFmt = "{0,22} {1,9}\n";
+            sb.Append(string.Format(totalFmt, "Subtotal:", sale.TotalAmount.ToString("N0")));
+            sb.Append(string.Format(totalFmt, "Discount:", sale.Discount.ToString("N0")));
+            sb.Append("\x1B\x45\x01" + string.Format(totalFmt, "TOTAL:", sale.NetTotal.ToString("N0")) + "\x1B\x45\x00");
+
+            if (SelectedCustomerId > 0)
+            {
+                sb.Append("--------------------------------\nACCOUNT BALANCE:\n");
+                sb.Append(string.Format(totalFmt, "Prev Bal:", oldBalance.ToString("N0")));
+                if (IsCredit) sb.Append(string.Format(totalFmt, "Current Bill:", netTotal.ToString("N0")));
+                sb.Append("\x1B\x45\x01" + string.Format(totalFmt, "New Bal:", newBalance.ToString("N0")) + "\x1B\x45\x00");
+            }
+
+            sb.Append("--------------------------------\n\x1B\x61\x01Thank You!\nNo Return / Exchange\n\n\n\n\x1D\x56\x01");
+
+            string printerName = Config["PrinterSettings:PrinterName"] ?? "Microsoft Print to PDF";
+            bool printSuccess = PrinterHelper.SendStringToPrinter(printerName, sb.ToString());
+            if (!printSuccess) ErrorMessage = "Printing failed. Check printer settings.";
+        }
+
+        ClearCart();
+        await LoadData();
+        await FocusSearch();
+    }
+
+    private async Task HandleGlobalKeys(KeyboardEventArgs e)
+    {
+        if (e.Key == "F2") await FocusSearch();
+        if (e.Key == "F8") await ProcessSale(false, false);
+        if (e.Key == "F9") await ProcessSale(true, false);
+        if (e.Key == "F10") await ProcessSale(true, true);
+        if (e.Key == "Escape") ClearCart();
+    }
+
+    private async Task FocusSearch()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('barcodeInput').focus()");
+    }
+}

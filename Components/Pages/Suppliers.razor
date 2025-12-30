@@ -1,0 +1,142 @@
+﻿@page "/suppliers"
+@using Microsoft.EntityFrameworkCore
+@using Shop.Models
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Customers</h3>
+        <button class="btn btn-primary" @onclick="OpenAddModal">
+            <i class="bi bi-plus-lg me-2"></i>Add Supplier
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white p-3">
+            <input type="text" class="form-control w-50" placeholder="Search by name or ph..."
+            @bind="SearchTerm" @bind:event="oninput" />
+        </div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Company</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in FilterSuppliers)
+                    {
+                        <tr>
+                            <td><span class="badge bg-secondary">@s.Id</span></td>
+                            <td class="fw-bold">@s.Name</td>
+                            <td>@s.Phone</td>
+                            <td>@s.CompanyName</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditSupplier(s)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSupplier(s)">Del</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(CurrentSupplier.Id == 0 ? "Add Customer" : "Edit Customer")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="CurrentSupplier" OnValidSubmit="SaveSupplier">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label>Name</label>
+                            <InputText @bind-Value="CurrentSupplier.Name" class="form-control" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label>Phone</label>
+                                <InputText @bind-Value="CurrentSupplier.Phone" class="form-control" />
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label>Company Name</label>
+                                <InputText @bind-Value="CurrentSupplier.CompanyName" class="form-control" />
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 py-2">Save</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@code{
+    private List<Supplier> Supplier = new();
+    private Supplier CurrentSupplier = new();
+    private string SearchTerm = "";
+    private bool ShowModal = false;
+
+    protected override async Task OnInitializedAsync(){
+        LoadSuppliers();
+    }
+
+    private async Task LoadSuppliers(){
+        using var context = DbFactory.CreateDbContext();
+        Supplier = await context.Suppliers.OrderByDescending(s => s.Id).ToListAsync();
+    }
+
+    private List<Supplier> FilterSuppliers => Supplier
+        .Where(c => string.IsNullOrEmpty(SearchTerm) ||
+            c.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+            c.Phone.Contains(SearchTerm))
+        .ToList();
+
+    private async Task OpenAddModal(){
+        CurrentSupplier = new Supplier();
+        ShowModal = true;
+    }
+
+    private async Task SaveSupplier(){
+        using var context = DbFactory.CreateDbContext();
+        if(CurrentSupplier.Id == 0){
+            context.Suppliers.Add(CurrentSupplier);
+        }else{
+            context.Suppliers.Update(CurrentSupplier);
+        }
+        await context.SaveChangesAsync();
+        ShowModal = false;
+        await LoadSuppliers();
+    }
+
+    private void EditSupplier(Supplier s){
+        CurrentSupplier = new Supplier
+        {
+            Id = s.Id,
+            Name = s.Name,
+            CompanyName = s.CompanyName,
+            Phone = s.Phone
+        };
+        ShowModal = true;
+    }
+
+    private async Task DeleteSupplier(Supplier s){
+        using var context = DbFactory.CreateDbContext();
+        context.Suppliers.Remove(s);
+        await context.SaveChangesAsync();
+        await LoadSuppliers();
+    }
+
+    private void CloseModal() => ShowModal = false;
+}

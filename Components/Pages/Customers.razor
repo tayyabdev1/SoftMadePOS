@@ -1,0 +1,326 @@
+﻿@page "/customers"
+@using Microsoft.EntityFrameworkCore
+@using Shop.Models
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Customer Management</h3>
+        <button class="btn btn-primary" @onclick="OpenAddModal">
+            <i class="bi bi-person-plus-fill me-2"></i>Add Customer
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white p-3">
+            <input type="text" class="form-control w-50" placeholder="Search customer..."
+                   @bind="SearchTerm" @bind:event="oninput" />
+        </div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Balance (Udhaar)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in FilterCustomer)
+                    {
+                        <tr>
+                            <td>#@c.Id</td>
+                            <td class="fw-bold">@c.Name</td>
+                            <td>@c.Phone</td>
+                            <td>
+                                <span class="badge fs-6 @(c.Balance > 0 ? "bg-danger" : "bg-success")">
+                                    Rs. @c.Balance.ToString("N0")
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-warning fw-bold me-2" @onclick="() => OpenKhataModal(c)">
+                                    <i class="bi bi-journal-text me-1"></i> Khata / Ledger
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditCustomer(c)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(CurrentCustomer.Id == 0 ? "Add Customer" : "Edit Customer")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="CurrentCustomer" OnValidSubmit="SaveCustomer">
+                        <DataAnnotationsValidator />
+                        <div class="mb-3">
+                            <label>Name</label>
+                            <InputText @bind-Value="CurrentCustomer.Name" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label>Phone</label>
+                            <InputText @bind-Value="CurrentCustomer.Phone" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label>Address</label>
+                            <InputText @bind-Value="CurrentCustomer.Address" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label>Initial Balance</label>
+                            <InputNumber @bind-Value="CurrentCustomer.Balance" class="form-control" />
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Save Customer</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowKhataModal && SelectedKhataCustomer != null)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <div>
+                        <h5 class="modal-title fw-bold">@SelectedKhataCustomer.Name - Khata</h5>
+                        <small class="text-muted">@SelectedKhataCustomer.Phone</small>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseKhataModal"></button>
+                </div>
+
+                <div class="modal-body p-0">
+                    <div class="p-3 bg-white border-bottom d-flex justify-content-between align-items-end flex-wrap gap-3">
+
+                        <div class="p-2 border rounded bg-light text-center" style="min-width: 120px;">
+                            <small class="text-muted d-block text-uppercase">Current Balance</small>
+                            <span class="fs-4 fw-bold text-danger">Rs. @SelectedKhataCustomer.Balance.ToString("N0")</span>
+                        </div>
+
+                        <div class="d-flex gap-2 align-items-end flex-grow-1">
+                            <div class="flex-grow-1">
+                                <label class="small fw-bold text-success">Receive Payment (+)</label>
+                                <input type="number" class="form-control border-success"
+                                       placeholder="Amount (e.g. 2000)" @bind="PaymentAmount" />
+                            </div>
+                            <div class="flex-grow-1">
+                                <label class="small text-muted">Note</label>
+                                <input type="text" class="form-control"
+                                       placeholder="Description" @bind="PaymentNote" />
+                            </div>
+                            <button class="btn btn-success fw-bold" @onclick="ReceivePayment">
+                                <i class="bi bi-check-lg"></i> Receive
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-striped table-sm mb-0">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th class="text-end text-danger">Udhaar (Sale)</th>
+                                    <th class="text-end text-success">Paid (Recv)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var entry in LedgerHistory)
+                                {
+                                    <tr>
+                                        <td>@entry.Date.ToString("dd MMM yy, hh:mm tt")</td>
+                                        <td>
+                                            @entry.Description
+                                            @if (!string.IsNullOrEmpty(entry.Note))
+                                            {
+                                                <br />
+
+                                                <small class="text-muted">Note: @entry.Note</small>
+                                            }
+                                        </td>
+
+                                        <td class="text-end fw-bold text-danger">
+                                            @(entry.Type == "Sale" ? entry.Amount.ToString("N0") : "-")
+                                        </td>
+
+                                        <td class="text-end fw-bold text-success">
+                                            @(entry.Type == "Payment" ? entry.Amount.ToString("N0") : "-")
+                                        </td>
+                                    </tr>
+                                }
+                                @if (LedgerHistory.Count == 0)
+                                {
+                                    <tr><td colspan="4" class="text-center py-3">No history found.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    // VIEW MODELS
+    public class LedgerEntry
+    {
+        public DateTime Date { get; set; }
+        public string Type { get; set; } = ""; // "Sale" or "Payment"
+        public string Description { get; set; } = "";
+        public string Note { get; set; } = "";
+        public decimal Amount { get; set; }
+    }
+
+    // STATE
+    private List<Customer> Customer = new();
+    private Customer CurrentCustomer = new();
+    private string SearchTerm = "";
+
+    // Modal States
+    private bool ShowModal = false;
+    private bool ShowKhataModal = false;
+
+    // Khata Logic State
+    private Customer? SelectedKhataCustomer;
+    private List<LedgerEntry> LedgerHistory = new();
+    private decimal PaymentAmount = 0;
+    private string PaymentNote = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        using var context = DbFactory.CreateDbContext();
+        Customer = await context.Customers.OrderByDescending(c => c.Id).ToListAsync();
+    }
+
+    private List<Customer> FilterCustomer => Customer
+        .Where(c => string.IsNullOrEmpty(SearchTerm) ||
+               c.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+               c.Phone.Contains(SearchTerm))
+        .ToList();
+
+    // CRUD
+    private void OpenAddModal() { CurrentCustomer = new Customer(); ShowModal = true; }
+    private void CloseModal() => ShowModal = false;
+
+    private void EditCustomer(Customer c)
+    {
+        CurrentCustomer = new Customer { Id = c.Id, Name = c.Name, Phone = c.Phone, Address = c.Address, Balance = c.Balance };
+        ShowModal = true;
+    }
+
+    private async Task SaveCustomer()
+    {
+        using var context = DbFactory.CreateDbContext();
+        if (CurrentCustomer.Id == 0) context.Customers.Add(CurrentCustomer);
+        else context.Customers.Update(CurrentCustomer);
+        await context.SaveChangesAsync();
+        ShowModal = false;
+        await LoadCustomers();
+    }
+
+    // KHATA / LEDGER LOGIC
+
+    private async Task OpenKhataModal(Customer c)
+    {
+        SelectedKhataCustomer = c;
+        PaymentAmount = 0;
+        PaymentNote = "";
+        await LoadLedgerHistory(c.Id);
+        ShowKhataModal = true;
+    }
+
+    private void CloseKhataModal() => ShowKhataModal = false;
+
+    private async Task LoadLedgerHistory(int customerId)
+    {
+        using var context = DbFactory.CreateDbContext();
+        LedgerHistory.Clear();
+
+        // 1. Get Sales (Udhaar)
+        var sales = await context.Sales
+            .Where(s => s.CustomerId == customerId && s.PaymentMethod == "Credit") // Only Credit sales usually matter for Khata, or All sales if you prefer
+            .Select(s => new LedgerEntry
+                {
+                    Date = s.Date,
+                    Type = "Sale",
+                    Description = $"Invoice #{s.Id} (Items bought)",
+                    Amount = s.NetTotal
+                })
+            .ToListAsync();
+
+        // 2. Get Payments (Recovery)
+        var payments = await context.CustomerPayments
+            .Where(p => p.CustomerId == customerId)
+            .Select(p => new LedgerEntry
+                {
+                    Date = p.Date,
+                    Type = "Payment",
+                    Description = "Payment Received",
+                    Note = p.Note,
+                    Amount = p.Amount
+                })
+            .ToListAsync();
+
+        // 3. Combine & Sort by Date
+        LedgerHistory.AddRange(sales);
+        LedgerHistory.AddRange(payments);
+        LedgerHistory = LedgerHistory.OrderByDescending(x => x.Date).ToList();
+    }
+
+    private async Task ReceivePayment()
+    {
+        if (SelectedKhataCustomer == null || PaymentAmount <= 0) return;
+
+        using var context = DbFactory.CreateDbContext();
+
+        // 1. Record the Payment
+        var payment = new CustomerPayment
+            {
+                CustomerId = SelectedKhataCustomer.Id,
+                Date = DateTime.Now,
+                Amount = PaymentAmount,
+                Note = PaymentNote
+            };
+        context.CustomerPayments.Add(payment);
+
+        // 2. Update Customer Balance Decrease debt
+        var dbCustomer = await context.Customers.FindAsync(SelectedKhataCustomer.Id);
+        if (dbCustomer != null)
+        {
+            dbCustomer.Balance -= PaymentAmount;
+        }
+
+        await context.SaveChangesAsync();
+
+        SelectedKhataCustomer.Balance = dbCustomer.Balance; // Update local view
+        PaymentAmount = 0; // Reset input
+        PaymentNote = "";
+        await LoadLedgerHistory(SelectedKhataCustomer.Id); // Reload table
+        await LoadCustomers(); // Refresh main list background
+    }
+}
