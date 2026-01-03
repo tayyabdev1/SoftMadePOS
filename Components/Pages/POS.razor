@@ -20,11 +20,11 @@
     <div class="pos-content">
         <div class="search-bar-container shadow-sm">
             <input type="text" id="barcodeInput"
-                   @bind="SearchTerm"
-                   @bind:event="oninput"
-                   @onkeyup="HandleBarcodeEnter"
-                   placeholder="Scan Item OR Type 'Qty*Code' (e.g. 0.5*101)..."
-                   autocomplete="off" />
+            @bind="SearchTerm"
+            @bind:event="oninput"
+            @onkeyup="HandleBarcodeEnter"
+            placeholder="Scan Item OR Type 'Qty*Code' (e.g. 0.5*101)..."
+            autocomplete="off" />
             <i class="bi bi-search text-muted small"></i>
         </div>
 
@@ -58,8 +58,8 @@
                                     <button @onclick="() => ChangeQty(item, -1)">−</button>
 
                                     <input type="number" step="0.01" class="qty-input"
-                                           value="@item.Quantity"
-                                           @onchange="@(e => UpdateItemQty(item, e.Value))" />
+                                    value="@item.Quantity"
+                                    @onchange="@(e => UpdateItemQty(item, e.Value))" />
 
                                     <button @onclick="() => ChangeQty(item, 1)">+</button>
                                 </div>
@@ -130,243 +130,243 @@
 <style>
     /* Same Styles as before, plus: */
     .pos-container {
-        height: calc(100vh - 60px);
-        background-color: #f8f9fa;
-        display: flex;
-        justify-content: center;
-        padding: 15px;
-        font-family: 'Segoe UI', sans-serif;
-        outline: none;
+    height: calc(100vh - 60px);
+    background-color: #f8f9fa;
+    display: flex;
+    justify-content: center;
+    padding: 15px;
+    font-family: 'Segoe UI', sans-serif;
+    outline: none;
     }
 
     .pos-content {
-        width: 100%;
-        max-width: 950px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+    width: 100%;
+    max-width: 950px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     }
 
     .search-bar-container {
-        background: white;
-        border-radius: 8px;
-        padding: 0 15px;
-        height: 45px;
-        display: flex;
-        align-items: center;
-        border: 2px solid #333;
+    background: white;
+    border-radius: 8px;
+    padding: 0 15px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    border: 2px solid #333;
     }
 
-        .search-bar-container input {
-            border: none;
-            outline: none;
-            width: 100%;
-            font-size: 1rem;
-            font-weight: 500;
-        }
+    .search-bar-container input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 1rem;
+    font-weight: 500;
+    }
 
     .cart-card {
-        background: white;
-        border-radius: 12px;
-        border: 1px solid #e0e0e0;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        padding: 0 15px;
-        min-height: 0;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0 15px;
+    min-height: 0;
     }
 
     .cart-header-row {
-        display: flex;
-        align-items: center;
-        padding: 10px 5px;
-        font-weight: 700;
-        font-size: 0.9rem;
-        border-bottom: 2px solid #eee;
-        text-transform: uppercase;
-        color: #555;
+    display: flex;
+    align-items: center;
+    padding: 10px 5px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border-bottom: 2px solid #eee;
+    text-transform: uppercase;
+    color: #555;
     }
 
     .cart-list {
-        flex: 1;
-        overflow-y: auto;
-        padding-top: 5px;
+    flex: 1;
+    overflow-y: auto;
+    padding-top: 5px;
     }
 
     .cart-row {
-        display: flex;
-        align-items: center;
-        padding: 8px 5px;
-        border-bottom: 1px solid #f0f0f0;
-        font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    padding: 8px 5px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.95rem;
     }
 
     .col-item {
-        flex: 2;
-        overflow: hidden;
+    flex: 2;
+    overflow: hidden;
     }
 
     .col-qty {
-        flex: 1;
+    flex: 1;
     }
 
     .col-price {
-        flex: 1;
+    flex: 1;
     }
 
     .col-total {
-        flex: 1;
+    flex: 1;
     }
 
     .col-action {
-        width: 30px;
+    width: 30px;
     }
 
     .qty-group {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        background: #f1f3f5;
-        border-radius: 4px;
-        padding: 2px 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #f1f3f5;
+    border-radius: 4px;
+    padding: 2px 5px;
     }
 
-        .qty-group button {
-            background: none;
-            border: none;
-            font-size: 1.1rem;
-            color: #333;
-            cursor: pointer;
-            padding: 0;
-            width: 20px;
-        }
+    .qty-group button {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: #333;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    }
 
     .qty-input {
-        width: 50px;
-        text-align: center;
-        border: none;
-        background: transparent;
-        font-weight: 600;
-        font-size: 0.9rem;
-        outline: none;
+    width: 50px;
+    text-align: center;
+    border: none;
+    background: transparent;
+    font-weight: 600;
+    font-size: 0.9rem;
+    outline: none;
     }
-        .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
+    .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    }
 
     .btn-remove {
-        background: none;
-        border: none;
-        color: #ff6b6b;
-        font-size: 1.1rem;
-        cursor: pointer;
-        padding: 0;
+    background: none;
+    border: none;
+    color: #ff6b6b;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0;
     }
 
     .empty-cart-message {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        opacity: 0.5;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.5;
     }
 
     .footer-section {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        padding-top: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-top: 5px;
     }
 
     .totals-area {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 260px;
     }
 
     .small-text {
-        font-size: 0.9rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     }
 
     .discount-wrapper input {
-        width: 70px;
-        border: none;
-        border-bottom: 1px solid #ccc;
-        background: transparent;
-        font-weight: bold;
-        text-align: right;
-        outline: none;
-        font-size: 0.9rem;
+    width: 70px;
+    border: none;
+    border-bottom: 1px solid #ccc;
+    background: transparent;
+    font-weight: bold;
+    text-align: right;
+    outline: none;
+    font-size: 0.9rem;
     }
 
     .net-total-line {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #e6fcf5;
-        padding: 5px 10px;
-        border-radius: 6px;
-        border: 1px solid #00b894;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #e6fcf5;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #00b894;
     }
 
-        .net-total-line .value {
-            font-size: 2rem;
-            font-weight: 800;
-            color: #008c70;
-            line-height: 1;
-        }
+    .net-total-line .value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #008c70;
+    line-height: 1;
+    }
 
     .buttons-area {
-        width: 320px;
-        display: flex;
-        flex-direction: column;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
     }
 
     .btn-pay-only {
-        width: 100%;
-        background-color: #38b6ff;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 10px;
-        font-size: 1rem;
-        font-weight: 700;
-        cursor: pointer;
+    width: 100%;
+    background-color: #38b6ff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
     }
 
     .btn-pay-print {
-        background-color: #00b894;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 10px;
-        font-size: 1rem;
-        font-weight: 700;
-        cursor: pointer;
+    background-color: #00b894;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
     }
 
     .btn-cancel {
-        background-color: #ff4757;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 10px;
-        font-weight: 700;
-        cursor: pointer;
-        width: 60px;
-        font-size: 0.9rem;
+    background-color: #ff4757;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 60px;
+    font-size: 0.9rem;
     }
 
     .small-btn {
-        font-size: 0.9rem;
-        padding: 8px;
+    font-size: 0.9rem;
+    padding: 8px;
     }
 </style>
 
@@ -552,7 +552,7 @@
                 {
                     SaleId = sale.Id,
                     ProductId = item.ProductId,
-                    Quantity = (int)item.Quantity, // Temporarily casting to int to prevent crash if DB is not updated
+                    Quantity = item.Quantity, // Temporarily casting to int to prevent crash if DB is not updated
                     SalePrice = item.UnitPoolPrice
                 });
 
@@ -560,7 +560,7 @@
             if (dbProduct != null)
             {
                 // dbProduct.StockQuantity is likely still Int in your DB
-                dbProduct.StockQuantity -= (int)item.Quantity;
+                dbProduct.StockQuantity -= item.Quantity;
             }
         }
 
@@ -569,7 +569,7 @@
         if (PrintReceipt)
         {
             var sb = new System.Text.StringBuilder();
-            sb.Append("\x1B\x40\x1B\x61\x01\x1B\x45\x01KASHI STORE\n\x1B\x45\x00");
+            sb.Append("\x1B\x40\x1B\x61\x01\x1B\x45\x01MS STORE\n\x1B\x45\x00");
             sb.Append("Main Bazar Barkat Pura #2 FSD\nTel: 0300-1234567\n--------------------------------\n");
             sb.Append($"\x1B\x61\x00Inv: {sale.Id}   {DateTime.Now:dd/MM/yy hh:mm tt}\n");
 
@@ -603,7 +603,13 @@
                 sb.Append("\x1B\x45\x01" + string.Format(totalFmt, "New Bal:", newBalance.ToString("N0")) + "\x1B\x45\x00");
             }
 
-            sb.Append("--------------------------------\n\x1B\x61\x01Thank You!\nNo Return / Exchange\n\n\n\n\x1D\x56\x01");
+            sb.Append("--------------------------------\n");
+            sb.Append("\x1B\x61\x01Thank You!\n");
+            sb.Append("No Return / Exchange\n");
+            sb.Append("--------------------------------\n");
+            sb.Append("\x1B\x61\x01\x1B\x45\x01Made by SoftMade Studio\n\x1B\x45\x00");
+            sb.Append("www.softmadestudio.com\n");
+            sb.Append("\n\n\n\n\x1D\x56\x01");
 
             string printerName = Config["PrinterSettings:PrinterName"] ?? "Microsoft Print to PDF";
             bool printSuccess = PrinterHelper.SendStringToPrinter(printerName, sb.ToString());

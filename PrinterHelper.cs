@@ -1,78 +1,74 @@
-﻿using System;
-using System.IO;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
+using System.Text;
 
-public class PrinterHelper
+public static class PrinterHelper
 {
-    // Structure and API declarations for sending raw data to printer
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-    public class DOCINFOA
+    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool ClosePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool StartDocPrinter(IntPtr hPrinter, int level, ref DOC_INFO_1 pDocInfo);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool EndDocPrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool StartPagePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool EndPagePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct DOC_INFO_1
     {
-        [MarshalAs(UnmanagedType.LPStr)] public string pDocName;
-        [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
-        [MarshalAs(UnmanagedType.LPStr)] public string pDataType;
+        public string pDocName;
+        public string pOutputFile;
+        public string pDatatype;
     }
 
-    [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-    public static extern bool OpenPrinter([MarshalAs(UnmanagedType.LPStr)] string szPrinter, out IntPtr hPrinter, IntPtr pd);
-
-    [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-    public static extern bool ClosePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.Drv", EntryPoint = "StartDocPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-    public static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
-
-    [DllImport("winspool.Drv", EntryPoint = "EndDocPrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-    public static extern bool EndDocPrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.Drv", EntryPoint = "StartPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-    public static extern bool StartPagePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.Drv", EntryPoint = "EndPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-    public static extern bool EndPagePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-    public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
-
-    // THE MAIN FUNCTION YOU CALL
-    public static bool SendStringToPrinter(string printerName, string receiptText)
+    public static bool SendStringToPrinter(string printerName, string text)
     {
-        IntPtr pBytes;
-        Int32 dwCount;
-
-        // Convert string to bytes (Thermal printers usually need ANSI)
-        dwCount = receiptText.Length;
-        pBytes = Marshal.StringToCoTaskMemAnsi(receiptText);
-
-        return SendBytesToPrinter(printerName, pBytes, dwCount);
-    }
-
-    public static bool SendBytesToPrinter(string szPrinterName, IntPtr pBytes, Int32 dwCount)
-    {
-        Int32 dwError = 0, dwWritten = 0;
-        IntPtr hPrinter = new IntPtr(0);
-        DOCINFOA di = new DOCINFOA();
-        bool bSuccess = false;
-
-        di.pDocName = "Shop Receipt";
-        di.pDataType = "RAW";
-
-        if (OpenPrinter(szPrinterName, out hPrinter, IntPtr.Zero))
+        IntPtr hPrinter = IntPtr.Zero;
+        DOC_INFO_1 di = new DOC_INFO_1
         {
-            if (StartDocPrinter(hPrinter, 1, di))
-            {
-                if (StartPagePrinter(hPrinter))
-                {
-                    bSuccess = WritePrinter(hPrinter, pBytes, dwCount, out dwWritten);
-                    EndPagePrinter(hPrinter);
-                }
-                EndDocPrinter(hPrinter);
-            }
-            ClosePrinter(hPrinter);
-        }
+            pDocName = "POS Receipt",
+            pDatatype = "RAW",
+            pOutputFile = null
+        };
 
-        if (!bSuccess) dwError = Marshal.GetLastWin32Error();
-        Marshal.FreeCoTaskMem(pBytes);
-        return bSuccess;
+        try
+        {
+            if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero))
+                return false;
+
+            if (!StartDocPrinter(hPrinter, 1, ref di))
+                return false;
+
+            if (!StartPagePrinter(hPrinter))
+                return false;
+
+            byte[] bytes = Encoding.UTF8.GetBytes(text);
+            IntPtr pBytes = Marshal.AllocHGlobal(bytes.Length);
+            Marshal.Copy(bytes, 0, pBytes, bytes.Length);
+
+            bool success = WritePrinter(hPrinter, pBytes, bytes.Length, out int written);
+            Marshal.FreeHGlobal(pBytes);
+
+            EndPagePrinter(hPrinter);
+            EndDocPrinter(hPrinter);
+
+            return success;
+        }
+        finally
+        {
+            if (hPrinter != IntPtr.Zero)
+                ClosePrinter(hPrinter);
+        }
     }
 }
