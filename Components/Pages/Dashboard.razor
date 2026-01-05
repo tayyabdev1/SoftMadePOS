@@ -12,6 +12,9 @@
             <span class="text-muted small">Overview of your store performance</span>
         </div>
         <div class="text-muted small">
+            <button class="btn btn-dark" @onclick="BackupDatabase">
+                <i class="bi bi-download me-2"></i> Backup Data Now
+            </button>
             <i class="bi bi-calendar3 me-1"></i> @DateTime.Now.ToString("dd MMM yyyy")
         </div>
     </div>
@@ -19,7 +22,7 @@
     <div class="row g-4 mb-4">
         <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100 rounded-4 overflow-hidden text-white"
-                 style="background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);">
+            style="background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);">
                 <div class="card-body p-4 position-relative">
                     <div class="d-flex justify-content-between align-items-start z-1 position-relative">
                         <div>
@@ -130,33 +133,33 @@
 
 <style>
     .icon-circle {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     }
 
     .icon-circle-small {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     }
 
     .letter-spacing-1 {
-        letter-spacing: 0.5px;
+    letter-spacing: 0.5px;
     }
     .card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
-        .card:hover {
-            transform: translateY(-2px);
-        }
+    .card:hover {
+    transform: translateY(-2px);
+    }
 </style>
 
 @code {
@@ -239,6 +242,25 @@
                 ProductName = productNames.ContainsKey(x.ProductId) ? productNames[x.ProductId] : "Unknown",
                 QuantitySold = x.Qty
             }).ToList();
+    }
+
+    private async Task BackupDatabase(){
+        try
+        {
+            string docsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string backupFolder = Path.Combine(docsPath, "SoftMadePOS_Backups");
+            Directory.CreateDirectory(backupFolder);
+
+            string fileName = $"ShopDB_{DateTime.Now:yyyy-MM-dd_HH-mm}.db";
+            string fullPath = Path.Combine(backupFolder, fileName);
+
+            using var context = DbFactory.CreateDbContext();
+            await context.Database.ExecuteSqlRawAsync($"VACUUM INTO '{fullPath}'");
+            await JSRuntime.InvokeVoidAsync("alert", $"✅ Backup Succesfull!\nSaved to: {fullPath}");
+        }
+        catch(Exception ex){
+            await JSRuntime.InvokeVoidAsync("alert", $"❌ Backup Failed: {ex.Message}");
+        }
     }
 
     // View Models
