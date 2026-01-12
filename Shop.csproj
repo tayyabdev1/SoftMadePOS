@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
+	<!--<OutputType>WinExe</OutputType>-->
   </PropertyGroup>
 
   <ItemGroup>
