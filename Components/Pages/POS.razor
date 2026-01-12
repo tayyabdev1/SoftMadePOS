@@ -498,7 +498,7 @@
         SelectedCustomerId = 0;
     }
 
-    // PROCESS SALE
+    // ProcessSale
     private async Task ProcessSale(bool PrintReceipt, bool IsCredit = false)
     {
         if (Cart.Count == 0) return;
@@ -566,18 +566,18 @@
         await context.SaveChangesAsync();
 
         // ============================================================
-        //  RECEIPT PRINTING LOGIC (WITH LEFT MARGIN)
+        //  RECEIPT PRINTING LOGIC (SOLID LINES + HEADER UNDERLINE)
         // ============================================================
         if (PrintReceipt)
         {
             var sb = new System.Text.StringBuilder();
 
-            // === 1. DEFINE YOUR MARGIN HERE ===
-            // 3 Spaces = Moves text away from the left edge
-            string LeftMargin = "  ";
+            // 1. MARGIN & LINE SETTINGS
+            string LeftMargin = " "; // 2 Space Margin
+            const int ContentWidth = 39;
 
-            // Total width is still 42, but we use 3 for margin, leaving 39 for content.
-            const int MaxWidth = 42;
+            // Use '_' for a solid line
+            string SolidLine = LeftMargin + new string('_', ContentWidth) + "\n";
 
             // --- HELPER: Center text ---
             string CenterText(string text, int width)
@@ -590,12 +590,11 @@
                 return new string(' ', padLeft) + text + new string(' ', padRight);
             }
 
-            // 1. INIT
+            // 2. INIT
             sb.Append("\x1B\x40");          // Init Printer
 
-            // 2. HEADER (Stays Center Aligned - Automatic)
+            // 3. HEADER (Center)
             sb.Append("\x1B\x61\x01");      // Center Align
-
             sb.Append("\x1D\x21\x11");      // Double Size
             sb.Append("MS Store\n");
             sb.Append("\x1D\x21\x00");      // Reset Size
@@ -603,24 +602,20 @@
             sb.Append("Main Bazar Barkat Pura Street #4 FSD\n");
             sb.Append("0300-7220014\n");
 
-            // For dashed lines, we use the margin too so they align with the table
-            sb.Append("\x1B\x61\x00"); // Switch to Left Align for custom margin control
-            sb.Append(LeftMargin + new string('-', 39) + "\n");
+            // 4. INVOICE INFO
+            sb.Append("\x1B\x61\x00");      // Left Align for Lines
+            sb.Append(SolidLine);           // <--- Solid Line
 
-            // 3. INVOICE & DATE (Centered Logic)
-            // We center this relative to the 39-char content block
             string invLine = $"Inv: {sale.Id}   {DateTime.Now:dd-MM-yy hh:mm tt}";
-            sb.Append(LeftMargin + CenterText(invLine, 39) + "\n");
+            sb.Append(LeftMargin + CenterText(invLine, ContentWidth) + "\n");
 
-            sb.Append(LeftMargin + new string('-', 39) + "\n");
+            sb.Append(SolidLine);           // <--- Solid Line
 
-            // 4. COLUMNS HEADERS
-            // Math: Margin(3) + Item(16) + 1 + Qty(5) + 1 + Price(7) + 1 + Total(8) = 42
-
+            // 5. COLUMNS HEADERS
             sb.Append("\x1B\x45\x01"); // Bold On
 
-            sb.Append(LeftMargin); // <--- MARGIN
-            sb.Append(string.Format("{0,-16}", "Item")); // Reduced to 16
+            sb.Append(LeftMargin);
+            sb.Append(string.Format("{0,-16}", "Item"));
             sb.Append(" ");
             sb.Append(CenterText("Qty", 5));
             sb.Append(" ");
@@ -631,22 +626,24 @@
 
             sb.Append("\x1B\x45\x00"); // Bold Off
 
-            // 5. ITEMS LOOP (WITH WORD WRAP)
+            // === LINE UNDER HEADERS ===
+            sb.Append(SolidLine);
+            sb.Append("\n"); // Tiny gap after the line
+
+            // 6. ITEMS LOOP
             foreach (var item in Cart)
             {
                 string fullName = item.ProductName;
                 int maxLen = 16;
                 int currentPos = 0;
 
-                // --- STEP 1: PREPARE FIRST CHUNK ---
-                // Take the first 16 characters (or less if the name is short)
+                // First Line of Item
                 int len = Math.Min(maxLen, fullName.Length - currentPos);
                 string namePart = fullName.Substring(currentPos, len);
                 currentPos += len;
 
                 decimal itemTotal = item.UnitPoolPrice * item.Quantity;
 
-                // --- STEP 2: PRINT MAIN LINE (Name + Numbers) ---
                 sb.Append(LeftMargin);
                 sb.Append(string.Format("{0,-16}", namePart));
                 sb.Append(" ");
@@ -657,33 +654,25 @@
                 sb.Append(string.Format("{0,8}", itemTotal.ToString("N0")));
                 sb.Append("\n");
 
-                // --- STEP 3: PRINT REMAINING LINES (Name Only) ---
-                // While there are still letters left in the name...
+                // Word Wrap for Long Names
                 while (currentPos < fullName.Length)
                 {
-                    // Get the next 16 characters
                     len = Math.Min(maxLen, fullName.Length - currentPos);
                     namePart = fullName.Substring(currentPos, len);
                     currentPos += len;
 
-                    // Print them in the "Item" column, leaving the other columns empty
                     sb.Append(LeftMargin);
                     sb.Append(string.Format("{0,-16}", namePart));
                     sb.Append("\n");
                 }
-
-                // Gap between distinct items
-                sb.Append("\n");
+                sb.Append("\n"); // Gap between items
             }
 
-            sb.Append(LeftMargin + new string('-', 39) + "\n");
-            sb.Append("\n");
+            // 7. TOTALS
+            sb.Append(SolidLine); // <--- Solid Line before totals
 
-            // 6. TOTALS
-            // We construct the line manually to include the margin
             if (sale.Discount > 0)
             {
-                // Align Right within the 39 char block
                 string sub = $"SubTotal: {sale.TotalAmount.ToString("N0")}";
                 sb.Append(LeftMargin + string.Format("{0,39}", sub) + "\n");
 
@@ -691,29 +680,23 @@
                 sb.Append(LeftMargin + string.Format("{0,39}", disc) + "\n");
             }
 
-            // Total Bold
             sb.Append("\x1B\x45\x01"); // Bold On
             string tot = $"Total: {sale.NetTotal.ToString("N0")}";
             sb.Append(LeftMargin + string.Format("{0,39}", tot) + "\n");
             sb.Append("\x1B\x45\x00"); // Bold Off
 
-            sb.Append(LeftMargin + new string('-', 39) + "\n");
+            sb.Append(SolidLine); // <--- Solid Line after totals
 
-            // 7. FOOTER (Centered)
-            sb.Append("\x1B\x61\x01");      // Switch back to Auto-Center for footer
-            sb.Append("Thank You!\n");
-
-            // Dashed line for footer (Centered)
-            sb.Append(new string('-', 39) + "\n"); // No margin needed here, Center Align handles it
-
+            // 8. FOOTER
+            sb.Append("\x1B\x61\x01");      // Center Align
+            sb.Append("Thank You for Shopping here!\n");
+            sb.Append(SolidLine);           // <--- Solid Line
             sb.Append("Made by SoftMade Studio\n");
             sb.Append("www.softmadestudio.com\n");
 
-            // 8. CUT
             sb.Append("\n\n\n\n\n");
-            sb.Append("\x1D\x56\x01");
+            sb.Append("\x1D\x56\x01");      // Cut
 
-            // 9. SEND
             string printerName = Config["PrinterSettings:PrinterName"] ?? "ThermalPrinter";
             bool printSuccess = PrinterHelper.SendStringToPrinter(printerName, sb.ToString());
             if (!printSuccess) ErrorMessage = "Printing failed. Check printer name.";
