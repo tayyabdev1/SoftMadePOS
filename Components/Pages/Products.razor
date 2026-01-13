@@ -25,9 +25,9 @@
                         <th>Barcode</th>
                         <th>Name</th>
                         <th>Category</th>
-                        <th>Cost</th>
+                        @* <th>Cost</th> *@
                         <th>Price</th>
-                        <th>Stock</th>
+                        @* <th>Stock</th> *@
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -38,13 +38,13 @@
                             <td><span class="badge bg-secondary">@p.Barcode</span></td>
                             <td class="fw-bold">@p.Name</td>
                             <td>@p.Category</td>
-                            <td>@p.CostPrice.ToString("N0")</td>
+                            @*<td>@p.CostPrice.ToString("N0")</td> *@
                             <td class="text-success fw-bold">@p.SalePrice.ToString("N0")</td>
-                            <td>
+                            @* <td>
                                 <span class="badge @(p.StockQuantity < 10 ? "bg-danger" : "bg-success")">
                                     @p.StockQuantity
                                 </span>
-                            </td>
+                            </td> *@
                             <td>
                                 <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditProduct(p)">Edit</button>
                                 <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteProduct(p)">Del</button>
@@ -104,7 +104,7 @@
                                 <InputText @bind-Value="CurrentProduct.Name" class="form-control" />
                             </div>
 
-                            <div class="row">
+                            @* <div class="row">
                                 <div class="col-6 mb-3">
                                     <label>Category</label>
                                     <InputText @bind-Value="CurrentProduct.Category" class="form-control" />
@@ -113,13 +113,13 @@
                                     <label>Initial Stock</label>
                                     <InputNumber @bind-Value="StockToAdd" class="form-control" />
                                 </div>
-                            </div>
+                            </div> *@
 
                             <div class="row">
-                                <div class="col-6 mb-3">
+                                @* <div class="col-6 mb-3">
                                     <label>Cost Price</label>
                                     <InputNumber @bind-Value="CurrentProduct.CostPrice" class="form-control" />
-                                </div>
+                                </div> *@
                                 <div class="col-6 mb-3">
                                     <label>Sale Price</label>
                                     <InputNumber @bind-Value="CurrentProduct.SalePrice" class="form-control" />

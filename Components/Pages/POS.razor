@@ -1,4 +1,4 @@
-﻿@page "/pos"
+﻿@page "/"
 @using Microsoft.EntityFrameworkCore
 @using Shop.Models
 @inject IDbContextFactory<AppDbContext> DbFactory
@@ -19,7 +19,7 @@
 
     <div class="pos-content">
         <div class="search-bar-container shadow-sm">
-            <input type="text" id="barcodeInput"
+            <input @ref="SearchInput" type="text" id="barcodeInput"
             @bind="SearchTerm"
             @bind:event="oninput"
             @onkeyup="HandleBarcodeEnter"
@@ -43,7 +43,7 @@
                     <div class="empty-cart-message">
                         <i class="bi bi-basket2 mb-2 fs-1 text-black-50"></i>
                         <p class="text-muted small">Ready to scan...</p>
-                        <small class="text-muted" style="font-size:0.7rem">Tip: For 250g Sugar (Code 101), type <strong>0.25*101</strong></small>
+                        <small class="text-muted" style="font-size:0.7rem">Tip: 250g k lyee Sugar ka code, example <strong>0.25*101</strong></small>
                     </div>
                 }
                 else
@@ -98,12 +98,12 @@
                 <div class="total-line small-text">
                     <span class="label text-muted">Discount</span>
                     <div class="discount-wrapper">
-                        <input type="number" @bind="DiscountAmount" placeholder="0" />
+                        <input type="number" @bind="DiscountAmount" placeholder="0"/>
                     </div>
                 </div>
                 <div class="net-total-line mt-1">
                     <span class="label small text-uppercase text-muted">Net Total</span>
-                    <span class="value">Rs. @(Math.Max(0, Cart.Sum(x => x.Total) - Math.Abs(DiscountAmount)).ToString("N0"))</span>
+                    <span class="value">Rs. @(Math.Max(0, Cart.Sum(x => x.Total) - Math.Abs(DiscountAmount ?? 0)).ToString("N0"))</span>
                 </div>
             </div>
 
@@ -384,9 +384,10 @@
     private List<Customer> Customers = new();
     private List<CartItem> Cart = new();
     private string SearchTerm = "";
-    private decimal DiscountAmount = 0;
+    private decimal? DiscountAmount = null;
     private string ErrorMessage = "";
     private int SelectedCustomerId = 0;
+    private ElementReference SearchInput;
 
     protected override async Task OnInitializedAsync()
     {
@@ -473,7 +474,7 @@
     }
 
     // Manual Edit from UI
-    private void UpdateItemQty(CartItem item, object? value)
+    private async Task UpdateItemQty(CartItem item, object? value)
     {
         if (value is string s && decimal.TryParse(s, out decimal val))
         {
@@ -482,18 +483,23 @@
         }
     }
 
-    private void ChangeQty(CartItem item, int delta)
+    private async Task ChangeQty(CartItem item, int delta)
     {
         item.Quantity += delta;
-        if (item.Quantity <= 0) Cart.Remove(item);
+        if (item.Quantity <= 0){
+            await RemoveItem(item);
+        }
     }
 
-    private void RemoveItem(CartItem item) => Cart.Remove(item);
+    private async Task RemoveItem(CartItem item){
+        Cart.Remove(item);
+        await FocusSearch();
+    }
 
     private void ClearCart()
     {
         Cart.Clear();
-        DiscountAmount = 0;
+        DiscountAmount = null;
         ErrorMessage = "";
         SelectedCustomerId = 0;
     }
@@ -510,7 +516,7 @@
         }
 
         decimal subTotal = Cart.Sum(x => x.Total);
-        decimal safeDiscount = Math.Abs(DiscountAmount);
+        decimal safeDiscount = Math.Abs(DiscountAmount ?? 0);
         if (safeDiscount > subTotal) safeDiscount = subTotal;
         DiscountAmount = safeDiscount;
         decimal netTotal = subTotal - safeDiscount;
@@ -573,7 +579,7 @@
             var sb = new System.Text.StringBuilder();
 
             // 1. MARGIN & LINE SETTINGS
-            string LeftMargin = " "; // 2 Space Margin
+            string LeftMargin = "  "; // 2 Space Margin
             const int ContentWidth = 39;
 
             // Use '_' for a solid line
@@ -603,17 +609,27 @@
             sb.Append("0300-7220014\n");
 
             // 4. INVOICE INFO
-            sb.Append("\x1B\x61\x00");      // Left Align for Lines
+            sb.Append("\x1B\x61\x00");      // Left Align
             sb.Append(SolidLine);           // <--- Solid Line
 
-            string invLine = $"Inv: {sale.Id}   {DateTime.Now:dd-MM-yy hh:mm tt}";
-            sb.Append(LeftMargin + CenterText(invLine, ContentWidth) + "\n");
+            string invText = $"Inv: {sale.Id}";
+            string dateText = DateTime.Now.ToString("dd-MM-yy hh:mm tt");
+            int spaceCount = ContentWidth - (invText.Length + dateText.Length);
+            if (spaceCount < 0) spaceCount = 1; // Safety Check
 
-            sb.Append(SolidLine);           // <--- Solid Line
+            sb.Append(LeftMargin + invText + new string(' ', spaceCount) + dateText + "\n");
+
+            if(SelectedCustomerId > 0){
+                sb.Append(LeftMargin + $"Customer ID: {SelectedCustomerId}\n");
+            }
+            else{
+                sb.Append(LeftMargin + "Counter Sale\n");
+            }
 
             // 5. COLUMNS HEADERS
-            sb.Append("\x1B\x45\x01"); // Bold On
+            sb.Append(SolidLine);
 
+            sb.Append("\x1B\x45\x01"); // Bold On
             sb.Append(LeftMargin);
             sb.Append(string.Format("{0,-16}", "Item"));
             sb.Append(" ");
@@ -623,12 +639,9 @@
             sb.Append(" ");
             sb.Append(string.Format("{0,8}", "Total"));
             sb.Append("\n");
-
             sb.Append("\x1B\x45\x00"); // Bold Off
 
-            // === LINE UNDER HEADERS ===
             sb.Append(SolidLine);
-            sb.Append("\n"); // Tiny gap after the line
 
             // 6. ITEMS LOOP
             foreach (var item in Cart)
@@ -665,11 +678,11 @@
                     sb.Append(string.Format("{0,-16}", namePart));
                     sb.Append("\n");
                 }
-                sb.Append("\n"); // Gap between items
             }
 
             // 7. TOTALS
             sb.Append(SolidLine); // <--- Solid Line before totals
+            sb.Append("\n");
 
             if (sale.Discount > 0)
             {
@@ -690,8 +703,14 @@
             // 8. FOOTER
             sb.Append("\x1B\x61\x01");      // Center Align
             sb.Append("Thank You for Shopping here!\n");
+            sb.Append("Without Receipt No Return.\n");
+
             sb.Append(SolidLine);           // <--- Solid Line
-            sb.Append("Made by SoftMade Studio\n");
+
+            sb.Append("Made by ");
+            sb.Append("\x1B\x45\x01"); // Bold on
+            sb.Append("SoftMade Studio\n");
+            sb.Append("\x1B\x45\x00"); // Bold off
             sb.Append("www.softmadestudio.com\n");
 
             sb.Append("\n\n\n\n\n");
@@ -718,6 +737,13 @@
 
     private async Task FocusSearch()
     {
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('barcodeInput').focus()");
+        try
+        {
+            await SearchInput.FocusAsync();
+        }
+        catch
+        {
+
+        }
     }
 }
