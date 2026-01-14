@@ -92,6 +92,10 @@
                 </div>
 
                 <div class="total-line small-text">
+                    <span class="label text-muted">Total Items</span>
+                    <span class="value">@Cart.Sum(x => x.Quantity).ToString("0.##")</span>
+                </div>
+                <div class="total-line small-text">
                     <span class="label text-muted">Subtotal</span>
                     <span class="value">@Cart.Sum(x => x.Total).ToString("N0")</span>
                 </div>
@@ -331,7 +335,7 @@
 
     .btn-pay-only {
     width: 100%;
-    background-color: #38b6ff;
+    background-color: black;
     color: white;
     border: none;
     border-radius: 6px;
@@ -342,7 +346,7 @@
     }
 
     .btn-pay-print {
-    background-color: #00b894;
+    background-color: black;
     color: white;
     border: none;
     border-radius: 6px;
@@ -353,7 +357,7 @@
     }
 
     .btn-cancel {
-    background-color: #ff4757;
+    background-color: #ff0016;
     color: white;
     border: none;
     border-radius: 6px;
@@ -683,6 +687,10 @@
             // 7. TOTALS
             sb.Append(SolidLine); // <--- Solid Line before totals
             sb.Append("\n");
+
+            // total items count
+            decimal totalQty = Cart.Sum(x => x.Quantity);
+            sb.Append(LeftMargin + $"Total Items: {totalQty.ToString("0.##")}" + "\n");
 
             if (sale.Discount > 0)
             {
